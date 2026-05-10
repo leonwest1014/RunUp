@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stride">
+<title>Stride</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+:root{
+  --bg:#080c10;--surf:#0f1419;--surf2:#161d24;--border:#1c2530;
+  --accent:#00e5ff;--go:#39ff7e;--warn:#ff6b35;
+  --txt:#dde8f0;--dim:#4a6070;--dimmer:#2a3a48;
+}
+html{height:-webkit-fill-available;background:var(--bg);}
+body{
+  min-height:100vh;min-height:-webkit-fill-available;
+  background:var(--bg);color:var(--txt);
+  font-family:'DM Mono',monospace;
+  overscroll-behavior:none;
+  -webkit-overflow-scrolling:touch;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,.012) 2px,rgba(0,229,255,.012) 4px);
+}
+.app{
+  max-width:430px;margin:0 auto;
+  padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+  position:relative;
+}
+
+/* header */
+.hdr{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:calc(env(safe-area-inset-top,0px) + 16px) 20px 12px;
+}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:5px;color:var(--accent);}
+.phase-pill{
+  font-size:9px;letter-spacing:3px;text-transform:uppercase;
+  padding:6px 14px;border-radius:20px;border:1px solid var(--border);color:var(--dim);
+  transition:all .3s;
+}
+.phase-pill.running{border-color:var(--go);color:var(--go);box-shadow:0 0 14px rgba(57,255,126,.2);}
+.phase-pill.paused{border-color:var(--warn);color:var(--warn);}
+
+/* timer */
+.timer-wrap{text-align:center;padding:8px 20px 4px;}
+.timer-lbl{font-size:9px;letter-spacing:4px;color:var(--dim);text-transform:uppercase;margin-bottom:4px;}
+.timer{font-family:'Bebas Neue',sans-serif;font-size:80px;line-height:1;letter-spacing:6px;color:var(--txt);transition:color .4s;}
+.timer.live{color:var(--accent);text-shadow:0 0 40px rgba(0,229,255,.15);}
+
+/* metrics */
+.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 16px;}
+.metric{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px 10px;text-align:center;}
+.m-lbl{font-size:8px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;}
+.m-val{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;color:var(--txt);}
+.m-val.sm{font-size:20px;}
+.m-unit{font-size:9px;color:var(--dim);font-family:'DM Mono',monospace;}
+
+/* mode toggle */
+.mode-row{display:flex;gap:6px;padding:4px 16px 8px;}
+.mode-btn{
+  flex:1;padding:11px 0;border-radius:12px;border:1px solid var(--border);
+  background:transparent;color:var(--dim);cursor:pointer;
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  transition:all .2s;min-height:44px;
+}
+.mode-btn.active{background:var(--surf2);border-color:var(--accent);color:var(--accent);}
+
+/* map */
+.map-wrap{margin:0 16px 10px;border-radius:16px;overflow:hidden;border:1px solid var(--border);position:relative;}
+#routeCanvas{display:block;width:100%;height:170px;}
+.map-empty{
+  height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  background:var(--surf);
+}
+.map-empty-icon{font-size:30px;opacity:.3;}
+.map-empty-txt{font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;text-align:center;padding:0 20px;}
+.map-overlay{
+  position:absolute;bottom:10px;left:10px;
+  background:rgba(8,12,16,.85);border:1px solid var(--border);
+  border-radius:8px;padding:5px 10px;
+  font-size:9px;letter-spacing:2px;color:var(--dim);
+}
+.map-overlay.gps-on{color:var(--go);border-color:rgba(57,255,126,.3);}
+
+/* gps banner */
+.gps-banner{
+  margin:0 16px 10px;padding:12px 14px;
+  background:rgba(255,107,53,.07);border:1px solid rgba(255,107,53,.2);
+  border-radius:12px;font-size:10px;color:var(--warn);line-height:1.6;
+}
+.hidden{display:none!important;}
+
+/* manual input */
+.manual-wrap{margin:0 16px 10px;background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.manual-lbl{font-size:9px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin-bottom:10px;}
+.manual-row{display:flex;gap:8px;align-items:center;}
+.manual-input{
+  flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:10px;
+  padding:14px;color:var(--txt);font-family:'DM Mono',monospace;font-size:22px;
+  outline:none;text-align:center;-webkit-appearance:none;appearance:none;min-height:50px;
+}
+.manual-input:focus{border-color:var(--accent);}
+.manual-unit{font-size:13px;color:var(--dim);}
+.manual-add{
+  padding:14px 18px;background:var(--accent);color:#080c10;
+  border:none;border-radius:10px;cursor:pointer;
+  font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;min-height:50px;
+}
+
+/* controls */
+.controls{padding:6px 16px 12px;display:flex;gap:10px;}
+.btn{
+  flex:1;border:none;cursor:pointer;
+  font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;
+  border-radius:16px;height:64px;transition:transform .15s;
+  -webkit-user-select:none;user-select:none;
+}
+.btn:active{transform:scale(.96);}
+.btn-go{background:var(--go);color:#080c10;}
+.btn-pause{background:var(--surf);color:var(--txt);border:1px solid var(--border);}
+.btn-end{background:var(--surf);color:var(--warn);border:1px solid rgba(255,107,53,.2);flex:0 0 68px;font-size:22px;}
+
+/* history */
+.hist{padding:0 16px 16px;}
+.hist-hdr{font-size:9px;letter-spacing:4px;color:var(--dim);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+.hist-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
+.run-card{
+  background:var(--surf);border:1px solid var(--border);border-radius:14px;
+  padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px;
+  animation:fadeUp .3s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.run-badge{width:42px;height:42px;border-radius:10px;flex-shrink:0;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.run-info{flex:1;min-width:0;}
+.run-date{font-size:8px;letter-spacing:2px;color:var(--dim);margin-bottom:3px;text-transform:uppercase;}
+.run-meta{font-size:10px;color:var(--txt);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.run-km{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);line-height:1;white-space:nowrap;}
+.run-km small{font-size:11px;color:var(--dim);font-family:'DM Mono',monospace;}
+.empty{text-align:center;padding:28px 0;font-size:9px;letter-spacing:3px;color:var(--dimmer);}
+
+/* install tip */
+.install-tip{
+  margin:0 16px 12px;padding:11px 14px;
+  background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.12);
+  border-radius:12px;font-size:9px;color:var(--dim);letter-spacing:1px;line-height:1.7;
+}
+.install-tip strong{color:var(--accent);}
+.tip-close{float:right;cursor:pointer;color:var(--dim);font-size:14px;line-height:1;margin-left:8px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="logo">STRIDE</div>
+    <div class="phase-pill" id="phasePill">ready</div>
+  </div>
+
+  <!-- Install tip (shown once, dismissible) -->
+  <div class="install-tip" id="installTip">
+    <span class="tip-close" onclick="dismissTip()">✕</span>
+    <strong>Add to Home Screen</strong> for GPS access & app feel.<br>
+    Safari → Share button → "Add to Home Screen"
+  </div>
+
+  <!-- Timer -->
+  <div class="timer-wrap">
+    <div class="timer-lbl">elapsed time</div>
+    <div class="timer" id="timer">00:00</div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="m-lbl">distance</div>
+      <div class="m-val" id="mKm">0.00<div class="m-unit">km</div></div>
+    </div>
+    <div class="metric">
+      <div class="m-lbl">avg pace</div>
+      <div class="m-val sm" id="mPace">--'--"<div class="m-unit">/km</div></div>
+    </div>
+    <div class="metric">
+      <div class="m-lbl">gps pts</div>
+      <div class="m-val" id="mPts">0<div class="m-unit">pts</div></div>
+    </div>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-row" id="modeRow">
+    <button class="mode-btn active" id="modeGps" onclick="setMode('gps')">📡 GPS</button>
+    <button class="mode-btn" id="modeManual" onclick="setMode('manual')">✏️ Manual</button>
+    <button class="mode-btn" id="modeSim" onclick="setMode('sim')">🎮 Demo</button>
+  </div>
+
+  <!-- GPS denied banner -->
+  <div class="gps-banner hidden" id="gpsBanner">
+    ⚠️ Location denied. On iPhone: <strong>Settings → Privacy → Location Services → Safari → While Using</strong>. Or switch to Manual or Demo mode.
+  </div>
+
+  <!-- Map -->
+  <div class="map-wrap" id="mapWrap">
+    <div class="map-empty" id="mapEmpty">
+      <div class="map-empty-icon">🗺️</div>
+      <div class="map-empty-txt" id="mapEmptyTxt">route appears as you run</div>
+    </div>
+    <canvas id="routeCanvas" class="hidden"></canvas>
+    <div class="map-overlay hidden" id="mapOverlay">GPS</div>
+  </div>
+
+  <!-- Manual input -->
+  <div class="manual-wrap hidden" id="manualWrap">
+    <div class="manual-lbl">Add distance</div>
+    <div class="manual-row">
+      <input class="manual-input" id="manualInput" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
+      <span class="manual-unit">km</span>
+      <button class="manual-add" onclick="addManual()">+ ADD</button>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls" id="controls">
+    <button class="btn btn-go" id="btnStart" onclick="handleStart()">START RUN</button>
+  </div>
+
+  <!-- History -->
+  <div class="hist">
+    <div class="hist-hdr">recent runs</div>
+    <div id="historyList">
+      <div class="empty" id="emptyMsg">no runs yet — lace up! 👟</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── state ────────────────────────────────────────────────────
+let phase = 'idle'; // idle | running | paused
+let elapsed = 0, km = 0;
+let path = [], location_ = null;
+let gpsStatus = 'off'; // off | searching | active | denied
+let mode = 'gps';
+let history = [];
+
+// timers / watchers
+let timerInterval = null, watchId = null, simInterval = null;
+let t0 = null, baseElapsed = 0, simIdx = 0;
+
+// ── sim route (loop) ─────────────────────────────────────────
+const SIM_ROUTE = (() => {
+  const cx = 139.6917, cy = 35.6895, pts = [];
+  for (let i = 0; i <= 120; i++) {
+    const a = (i / 120) * Math.PI * 2;
+    pts.push({ lat: cy + Math.sin(a)*0.008 + Math.sin(a*3)*0.002,
+               lon: cx + Math.cos(a)*0.010 + Math.cos(a*2)*0.002 });
+  }
+  return pts;
+})();
+
+// ── helpers ──────────────────────────────────────────────────
+function fmtTime(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return h > 0
+    ? `${pad(h)}:${pad(m)}:${pad(ss)}`
+    : `${pad(m)}:${pad(ss)}`;
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtPace(k, s) {
+  if (k < 0.01) return '--\'--"';
+  const ps = s/k, pm = Math.floor(ps/60), pss = Math.floor(ps%60);
+  return `${pm}'${pad(pss)}"`;
+}
+function haversine(a, b) {
+  const R = 6371, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lon-a.lon)*Math.PI/180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+// ── render helpers ───────────────────────────────────────────
+function updateUI() {
+  document.getElementById('timer').textContent = fmtTime(elapsed);
+  document.getElementById('timer').className = 'timer' + (phase==='running'?' live':'');
+  document.getElementById('mKm').innerHTML = km.toFixed(2) + '<div class="m-unit">km</div>';
+  document.getElementById('mPace').innerHTML = fmtPace(km, elapsed) + '<div class="m-unit">/km</div>';
+  document.getElementById('mPts').innerHTML = path.length + '<div class="m-unit">pts</div>';
+
+  // pill
+  const pill = document.getElementById('phasePill');
+  pill.textContent = phase==='idle' ? 'ready' : phase==='running' ? '● live' : 'paused';
+  pill.className = 'phase-pill ' + phase;
+
+  // controls
+  const ctrl = document.getElementById('controls');
+  const isActive = phase === 'running' || phase === 'paused';
+  if (!isActive) {
+    ctrl.innerHTML = `<button class="btn btn-go" onclick="handleStart()">START RUN</button>`;
+  } else if (phase === 'running') {
+    ctrl.innerHTML = `<button class="btn btn-pause" onclick="handlePause()">PAUSE</button>
+                      <button class="btn btn-end" onclick="handleStop()">■</button>`;
+  } else {
+    ctrl.innerHTML = `<button class="btn btn-go" onclick="handleResume()">RESUME</button>
+                      <button class="btn btn-end" onclick="handleStop()">FINISH</button>`;
+  }
+
+  // mode row
+  document.getElementById('modeRow').classList.toggle('hidden', isActive);
+
+  // manual wrap
+  document.getElementById('manualWrap').classList.toggle('hidden', !(mode==='manual' && isActive));
+
+  // gps banner
+  document.getElementById('gpsBanner').classList.toggle('hidden', !(gpsStatus==='denied' && mode==='gps'));
+
+  // map
+  const mapEmpty = document.getElementById('mapEmpty');
+  const canvas = document.getElementById('routeCanvas');
+  const overlay = document.getElementById('mapOverlay');
+  if (path.length >= 2) {
+    mapEmpty.classList.add('hidden');
+    canvas.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    overlay.textContent = mode==='sim' ? 'DEMO MODE' : gpsStatus==='active' ? `GPS · ${path.length} pts` : mode==='manual' ? 'MANUAL' : 'NO GPS';
+    overlay.className = 'map-overlay' + (gpsStatus==='active' ? ' gps-on' : '');
+    drawPath();
+  } else {
+    mapEmpty.classList.remove('hidden');
+    canvas.classList.add('hidden');
+    overlay.classList.add('hidden');
+    document.getElementById('mapEmptyTxt').textContent =
+      mode==='gps' ? 'route appears as you run' :
+      mode==='sim' ? 'tap start to see demo route' :
+      'map not used in manual mode';
+  }
+}
+
+// ── canvas drawing ───────────────────────────────────────────
+function drawPath() {
+  const canvas = document.getElementById('routeCanvas');
+  if (!canvas || path.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+  if (!cw || !ch) return;
+  canvas.width = cw * dpr; canvas.height = ch * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const lats = path.map(p=>p.lat), lons = path.map(p=>p.lon);
+  const la=Math.min(...lats), lo=Math.min(...lons), la2=Math.max(...lats), lo2=Math.max(...lons);
+  const pad_=22;
+  const sx=(cw-pad_*2)/(lo2-lo||0.001), sy=(ch-pad_*2)/(la2-la||0.001), sc=Math.min(sx,sy);
+  const ox=(cw-pad_*2-(lo2-lo)*sc)/2, oy=(ch-pad_*2-(la2-la)*sc)/2;
+  const tx=lon=>pad_+ox+(lon-lo)*sc;
+  const ty=lat=>ch-pad_-oy-(lat-la)*sc;
+
+  // grid
+  ctx.strokeStyle='rgba(0,229,255,.05)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    ctx.beginPath();ctx.moveTo(cw/5*i,0);ctx.lineTo(cw/5*i,ch);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,ch/4*i);ctx.lineTo(cw,ch/4*i);ctx.stroke();
+  }
+  // glow
+  ctx.beginPath();ctx.moveTo(tx(path[0].lon),ty(path[0].lat));
+  path.forEach(p=>ctx.lineTo(tx(p.lon),ty(p.lat)));
+  ctx.strokeStyle='rgba(0,229,255,.12)';ctx.lineWidth=8;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
+  // trail
+  const g=ctx.createLinearGradient(tx(path[0].lon),ty(path[0].lat),tx(path[path.length-1].lon),ty(path[path.length-1].lat));
+  g.addColorStop(0,'#39ff7e');g.addColorStop(1,'#00e5ff');
+  ctx.beginPath();ctx.moveTo(tx(path[0].lon),ty(path[0].lat));
+  path.forEach(p=>ctx.lineTo(tx(p.lon),ty(p.lat)));
+  ctx.strokeStyle=g;ctx.lineWidth=3;ctx.stroke();
+  // start dot
+  ctx.beginPath();ctx.arc(tx(path[0].lon),ty(path[0].lat),5,0,Math.PI*2);ctx.fillStyle='#39ff7e';ctx.fill();
+  // current dot
+  const last=path[path.length-1];
+  ctx.beginPath();ctx.arc(tx(last.lon),ty(last.lat),10,0,Math.PI*2);ctx.strokeStyle='rgba(0,229,255,.3)';ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();ctx.arc(tx(last.lon),ty(last.lat),5,0,Math.PI*2);ctx.fillStyle='#00e5ff';ctx.fill();
+}
+
+// ── timer ────────────────────────────────────────────────────
+function startTimer() {
+  t0 = Date.now();
+  timerInterval = setInterval(() => {
+    elapsed = baseElapsed + Math.floor((Date.now() - t0) / 1000);
+    updateUI();
+  }, 500);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+  baseElapsed = elapsed;
+}
+
+// ── GPS ──────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) { gpsStatus='denied'; updateUI(); return; }
+  gpsStatus = 'searching'; updateUI();
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const pt = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      location_ = pt; gpsStatus = 'active';
+      if (!path.length) { path.push(pt); }
+      else {
+        const d = haversine(path[path.length-1], pt);
+        if (d >= 0.005) { km += d; path.push(pt); }
+      }
+      updateUI();
+    },
+    () => { gpsStatus='denied'; updateUI(); },
+    { enableHighAccuracy: true, maximumAge: 1000 }
+  );
+}
+function stopGPS() {
+  if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  gpsStatus = 'off';
+}
+
+// ── Simulate ─────────────────────────────────────────────────
+function startSim() {
+  simIdx = 0;
+  simInterval = setInterval(() => {
+    if (simIdx >= SIM_ROUTE.length) { clearInterval(simInterval); return; }
+    const pt = SIM_ROUTE[simIdx];
+    if (!path.length) { path.push(pt); }
+    else { const d = haversine(path[path.length-1], pt); km += d; path.push(pt); }
+    simIdx++;
+    updateUI();
+  }, 700);
+}
+function stopSim() { clearInterval(simInterval); }
+
+// ── mode ─────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  ['gps','manual','sim'].forEach(id => {
+    document.getElementById('mode'+id.charAt(0).toUpperCase()+id.slice(1)).classList.toggle('active', id===m);
+  });
+  updateUI();
+}
+
+// ── controls ─────────────────────────────────────────────────
+function handleStart() {
+  phase='running'; baseElapsed=0; elapsed=0; startTimer();
+  if (mode==='gps') startGPS();
+  else if (mode==='sim') startSim();
+  updateUI();
+}
+function handlePause() {
+  phase='paused'; stopTimer();
+  if (mode==='gps') stopGPS();
+  else if (mode==='sim') stopSim();
+  updateUI();
+}
+function handleResume() {
+  phase='running'; startTimer();
+  if (mode==='gps') startGPS();
+  else if (mode==='sim') startSim();
+  updateUI();
+}
+function handleStop() {
+  stopTimer(); stopGPS(); stopSim();
+  if (elapsed > 0 || km > 0.01) {
+    const rec = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),
+      time: fmtTime(elapsed), km: km.toFixed(2), pace: fmtPace(km, elapsed),
+      mode, loc: location_ ? `${location_.lat.toFixed(4)},${location_.lon.toFixed(4)}` : null,
+    };
+    history.unshift(rec);
+    renderHistory();
+  }
+  phase='idle'; elapsed=0; km=0; path=[]; location_=null;
+  baseElapsed=0; simIdx=0; gpsStatus='off';
+  updateUI();
+}
+function addManual() {
+  const v = parseFloat(document.getElementById('manualInput').value);
+  if (!isNaN(v) && v > 0) { km += v; document.getElementById('manualInput').value=''; updateUI(); }
+}
+document.getElementById('manualInput').addEventListener('keydown', e => { if(e.key==='Enter') addManual(); });
+
+// ── history ──────────────────────────────────────────────────
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="empty" id="emptyMsg">no runs yet — lace up! 👟</div>';
+    return;
+  }
+  list.innerHTML = history.map(r => `
+    <div class="run-card">
+      <div class="run-badge">🏃</div>
+      <div class="run-info">
+        <div class="run-date">${r.date} · ${r.mode}</div>
+        <div class="run-meta">${r.time} · ${r.pace}/km${r.loc ? ` · 📍${r.loc}` : ''}</div>
+      </div>
+      <div class="run-km">${r.km}<small> km</small></div>
+    </div>
+  `).join('');
+}
+
+// ── install tip ──────────────────────────────────────────────
+function dismissTip() {
+  document.getElementById('installTip').classList.add('hidden');
+  try { localStorage.setItem('stride_tip','1'); } catch(e){}
+}
+try { if (localStorage.getItem('stride_tip')) dismissTip(); } catch(e){}
+
+// ── init ─────────────────────────────────────────────────────
+updateUI();
+</script>
+</body>
+</html>
